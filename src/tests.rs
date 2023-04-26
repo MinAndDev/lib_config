@@ -1,15 +1,16 @@
 #![cfg(test)]
 
-use crate::{config, JObject};
+use crate::config;
 
 #[test]
 fn test_main(){
     
-    let mut conf = config::open_from_home(".andrea", "config.json").unwrap();
+    let mut conf = config::open_from_home(".lib_config", "conftest.json").unwrap();
 
-    let _s0 = conf.get_section_mut("alberi").unwrap();
+    conf.write_value("val0", 100).unwrap();
+    let val0: i32 = conf.read_value("val0").unwrap();
 
-    conf.copy_from(JObject::new());
+    assert_eq!(val0, 100);
 
     conf.save().unwrap();
     
