@@ -3,13 +3,13 @@ use std::{path::{Path, PathBuf}, fs::{OpenOptions, File}, io::{Read, Write, Seek
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::map::Entry;
 
-use crate::{JObject, AnyError};
+use crate::{JObject, Error};
 
 ///Opens or create the given JSON config file within the given folder path
 ///# Arguments
 ///* `config_folder_path` - Path to the config folder, will create any missing folders
 ///* `file_name` - Name of the config file, will create the file if it doesn't exist
-pub fn open_from_path<P: AsRef<Path>>(config_folder_path: P, file_name: &str) -> Result<Config, AnyError>{
+pub fn open_from_path<P: AsRef<Path>>(config_folder_path: P, file_name: &str) -> Result<Config, Error>{
 
     let mut path = PathBuf::new();
     path.push(config_folder_path);
@@ -39,7 +39,7 @@ pub fn open_from_path<P: AsRef<Path>>(config_folder_path: P, file_name: &str) ->
 ///# Arguments
 ///* `folder_path` - Path to the config folder, will create any missing folders
 ///* `file_name` - Name of the config file, will create the file if it doesn't exist
-pub fn open_from_home<P: AsRef<Path>>(folder_path: P, file_name: &str) -> Result<Config, AnyError>{
+pub fn open_from_home<P: AsRef<Path>>(folder_path: P, file_name: &str) -> Result<Config, Error>{
     let dirs = directories::BaseDirs::new().ok_or("No valid home directory path could be retrived from OS")?;
     let home = dirs.home_dir();
     let mut buff = PathBuf::from(home);
@@ -60,7 +60,7 @@ pub struct Config{
 impl Config {
 
     ///Writes a valute to the given key, if it doesn't exist, inserts the key - value pair
-    pub fn write_value<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) -> Result<(), AnyError>{
+    pub fn write_value<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) -> Result<(), Error>{
         let key = key.into();
         let jvalue = serde_json::to_value(value)?;
 
@@ -75,7 +75,7 @@ impl Config {
     }
 
     ///Reads a value from the given key, if the key does not exist returns `Err`
-    pub fn read_value<K: Into<String>, V: DeserializeOwned>(&self, key: K) -> Result<V, AnyError>{
+    pub fn read_value<K: Into<String>, V: DeserializeOwned>(&self, key: K) -> Result<V, Error>{
         let json = self.data.get(&key.into()).ok_or("Key not found")?.clone();
         let value = serde_json::from_value::<V>(json)?;
 
@@ -83,7 +83,7 @@ impl Config {
     }
 
     ///Reads a value from the given key, if the key does not exists, inserts it with the given value
-    pub fn read_or_insert<K: Into<String>, V: DeserializeOwned + Serialize + Clone>(&mut self, key: K, value: V) -> Result<V, AnyError>{
+    pub fn read_or_insert<K: Into<String>, V: DeserializeOwned + Serialize + Clone>(&mut self, key: K, value: V) -> Result<V, Error>{
         let key = key.into();
 
         let v = if let Entry::Vacant(e) = self.data.entry(&key) {
@@ -100,7 +100,7 @@ impl Config {
     }
 
     ///Updates a value with the given key using the provided function, returns the final value of the key, if the key does not exist returns Err
-    pub fn update_value<K, V, Out, F>(&mut self, key: &K, f_upd: F) -> Result<Out, AnyError>
+    pub fn update_value<K, V, Out, F>(&mut self, key: &K, f_upd: F) -> Result<Out, Error>
     where
         K: ?Sized + Ord + Eq + Hash,
         String: Borrow<K>,
@@ -118,7 +118,7 @@ impl Config {
     }
 
     ///Gets an immutable reference to `Section` at the given key
-    pub fn get_section<K>(&self, key: &K) -> Result<Section<&JObject>, AnyError>
+    pub fn get_section<K>(&self, key: &K) -> Result<Section<&JObject>, Error>
     where K: ?Sized + Ord + Eq + Hash, String: Borrow<K>{
         let value = self.data.get(key).ok_or("Key not found")?
         .as_object().ok_or("Key's Value is not a json object")?;
@@ -129,7 +129,7 @@ impl Config {
     ///Gets a mutable reference to `Section` at the given key
     ///# Remarks
     /// Changing the `Section`'s value will also change the `Config` data
-    pub fn get_section_mut<K>(&mut self, key: &K) -> Result<Section<&mut JObject>, AnyError>
+    pub fn get_section_mut<K>(&mut self, key: &K) -> Result<Section<&mut JObject>, Error>
     where K: ?Sized + Ord + Eq + Hash, String: Borrow<K>{
         let value = self.data.get_mut(key).ok_or("Key not found")?
         .as_object_mut().ok_or("Key's Value is not a json object")?;
@@ -138,7 +138,7 @@ impl Config {
     }
 
     ///Writes the `Config` object to the file
-    pub fn save(&mut self) -> Result<String, AnyError>{
+    pub fn save(&mut self) -> Result<String, Error>{
         let str = serde_json::to_string_pretty(&self.data)?;
 
         self.file.set_len(0)?;
@@ -168,7 +168,7 @@ pub struct Section<T: ?Sized + Borrow<JObject>>(T);
 impl<T: ?Sized + Borrow<JObject>> Section<T>{
 
     ///Reads a value from the given key, if the key does not exist returns `Err`
-    pub fn read_value<K, V>(&self, key: &K) -> Result<V, AnyError>
+    pub fn read_value<K, V>(&self, key: &K) -> Result<V, Error>
     where
         K: ?Sized + Ord + Eq + Hash,
         String: Borrow<K>,
@@ -181,7 +181,7 @@ impl<T: ?Sized + Borrow<JObject>> Section<T>{
     }
 
     ///Gets an immutable reference to `Section` at the given key
-    pub fn get_section<K>(&self, key: &K) -> Result<Section<&JObject>, AnyError>
+    pub fn get_section<K>(&self, key: &K) -> Result<Section<&JObject>, Error>
     where K: ?Sized + Ord + Eq + Hash, String: Borrow<K>{
         let value = self.0.borrow().get(key).ok_or("Key not found")?
         .as_object().ok_or("Key's Value is not a json object")?;
@@ -199,8 +199,8 @@ impl<T: ?Sized + Borrow<JObject>> Section<T>{
 
 impl<T: ?Sized + BorrowMut<JObject>> Section<T>{
 
-    ///Writes a valute to the given key, if it doesn't exist, inserts the key - value pair
-    pub fn write_value<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) -> Result<(), AnyError>{
+    ///Writes a valute to the given key, if it doesn't exist, inserts the key value pair
+    pub fn write_value<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) -> Result<(), Error>{
         let key = key.into();
         let jvalue = serde_json::to_value(value)?;
 
@@ -215,7 +215,7 @@ impl<T: ?Sized + BorrowMut<JObject>> Section<T>{
     }
 
     ///Reads a value from the given key, if the key does not exists, inserts it with the given value
-    pub fn read_or_insert<K: Into<String>, V: DeserializeOwned + Serialize + Clone>(&mut self, key: K, value: V) -> Result<V, AnyError>{
+    pub fn read_or_insert<K: Into<String>, V: DeserializeOwned + Serialize + Clone>(&mut self, key: K, value: V) -> Result<V, Error>{
         let key = key.into();
 
         let v = if let Entry::Vacant(e) = self.0.borrow_mut().entry(&key) {
@@ -232,7 +232,7 @@ impl<T: ?Sized + BorrowMut<JObject>> Section<T>{
     }
 
     ///Updates a value with the given key using the provided function, returns the final value of the key, if the key does not exist returns Err
-    pub fn update_value<K, V, Out, F>(&mut self, key: &K, f_upd: F) -> Result<Out, AnyError>
+    pub fn update_value<K, V, Out, F>(&mut self, key: &K, f_upd: F) -> Result<Out, Error>
     where
         K: ?Sized + Ord + Eq + Hash,
         String: Borrow<K>,
@@ -252,7 +252,7 @@ impl<T: ?Sized + BorrowMut<JObject>> Section<T>{
     ///Gets a mutable reference to `Section` at the given key
     ///# Remarks
     /// Changing the `Section`'s value will also change the `Config` data
-    pub fn get_section_mut<K>(&mut self, key: &K) -> Result<Section<&mut JObject>, AnyError>
+    pub fn get_section_mut<K>(&mut self, key: &K) -> Result<Section<&mut JObject>, Error>
     where K: ?Sized + Ord + Eq + Hash, String: Borrow<K>{
         let value = self.0.borrow_mut().get_mut(key).ok_or("Key not found")?
         .as_object_mut().ok_or("Key's Value is not a json object")?;
